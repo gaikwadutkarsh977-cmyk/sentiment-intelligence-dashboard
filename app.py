@@ -22,12 +22,12 @@ else:
     greeting = "Good Evening"
 
 # -------------------------
-# CLEAN PROFESSIONAL THEME
+# SAFE PROFESSIONAL THEME
 # -------------------------
 st.markdown("""
 <style>
 .stApp {
-    background: linear-gradient(135deg, #141E30, #243B55);
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
     color: white;
 }
 
@@ -41,15 +41,15 @@ section[data-testid="stSidebar"] * {
 
 /* Metric cards */
 .metric-card {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.1);
     padding: 25px;
     border-radius: 15px;
     text-align:center;
     transition: 0.3s;
 }
 .metric-card:hover {
-    transform: translateY(-6px);
-    background: rgba(255,255,255,0.15);
+    transform: translateY(-5px);
+    background: rgba(255,255,255,0.18);
 }
 
 /* Title */
@@ -60,7 +60,7 @@ section[data-testid="stSidebar"] * {
 
 .sub-title {
     font-size: 15px;
-    color: #cde7ff;
+    color: #dbe9ff;
 }
 
 /* Logo */
@@ -68,14 +68,26 @@ section[data-testid="stSidebar"] * {
     width:90px;
     height:90px;
     border-radius:50%;
-    background: linear-gradient(135deg,#56ccf2,#2f80ed);
+    background: linear-gradient(135deg,#6dd5ed,#2193b0);
     display:flex;
     align-items:center;
     justify-content:center;
     font-size:34px;
     font-weight:bold;
     color:white;
-    box-shadow: 0 0 20px rgba(0,123,255,0.4);
+}
+
+/* ✅ FIX DOWNLOAD BUTTON ONLY */
+.stDownloadButton > button {
+    background-color: #2193b0 !important;
+    color: white !important;
+    border-radius: 8px;
+    padding: 8px 16px;
+    border: none;
+}
+
+.stDownloadButton > button:hover {
+    background-color: #176b87 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -181,8 +193,7 @@ if uploaded_file:
     fig.update_layout(
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
-        font_color="white",
-        transition_duration=800
+        font_color="white"
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -197,7 +208,7 @@ if uploaded_file:
         use_container_width=True
     )
 
-    # Download
+    # Download Button (FIXED)
     csv = filtered_df.to_csv(index=False).encode("utf-8")
 
     st.download_button(
