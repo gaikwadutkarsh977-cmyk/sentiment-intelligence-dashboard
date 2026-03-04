@@ -2,14 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-import time
+import pytz
 
 st.set_page_config(page_title="Sentiment Intelligence Dashboard", layout="wide")
 
 # -------------------------
-# Dynamic Greeting
+# FIXED TIMEZONE (India)
 # -------------------------
-current_hour = datetime.now().hour
+india = pytz.timezone("Asia/Kolkata")
+now = datetime.now(india)
+current_hour = now.hour
+current_time = now.strftime("%I:%M %p")
 
 if current_hour < 12:
     greeting = "Good Morning"
@@ -18,71 +21,82 @@ elif current_hour < 17:
 else:
     greeting = "Good Evening"
 
-current_time = datetime.now().strftime("%I:%M %p")
-
 # -------------------------
-# PROFESSIONAL CORPORATE THEME
+# PROFESSIONAL UI
 # -------------------------
 st.markdown("""
 <style>
 .stApp {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    background: linear-gradient(135deg, #141E30, #243B55);
     color: white;
 }
 
-/* Sidebar White */
+/* Sidebar White Clean */
 section[data-testid="stSidebar"] {
     background: white;
-    color: black;
 }
 section[data-testid="stSidebar"] * {
     color: black !important;
 }
 
-/* Animated Metric Card */
+/* Fix Browse Button Text */
+[data-testid="stFileUploader"] label,
+[data-testid="stFileUploader"] span,
+button {
+    color: black !important;
+}
+
+/* Download Button Fix */
+.stDownloadButton button {
+    background-color: #243B55;
+    color: white !important;
+    border-radius: 8px;
+}
+
+/* Metric Card */
 .metric-card {
     background: rgba(255,255,255,0.08);
-    padding: 20px;
+    padding: 25px;
     border-radius: 15px;
     text-align:center;
     transition: 0.3s;
 }
 .metric-card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-6px);
     background: rgba(255,255,255,0.15);
 }
 
 /* Title */
 .main-title {
-    font-size: 36px;
+    font-size: 38px;
     font-weight: 700;
 }
 
-/* Sub */
+/* Subtitle */
 .sub-title {
-    font-size: 14px;
-    color: #dcefff;
+    font-size: 15px;
+    color: #cde7ff;
 }
 
 /* Logo */
 .logo-circle {
-    width:85px;
-    height:85px;
+    width:90px;
+    height:90px;
     border-radius:50%;
-    background: linear-gradient(135deg,#1c92d2,#f2fcfe);
+    background: linear-gradient(135deg,#56ccf2,#2f80ed);
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:32px;
+    font-size:34px;
     font-weight:bold;
-    color:#0f2027;
-    box-shadow: 0 0 20px rgba(255,255,255,0.3);
+    color:white;
+    box-shadow: 0 0 20px rgba(0,123,255,0.4);
 }
 </style>
 """, unsafe_allow_html=True)
 
 # -------------------------
-# Header
+# HEADER
 # -------------------------
 col1, col2 = st.columns([1,5])
 
@@ -96,7 +110,7 @@ with col2:
 st.divider()
 
 # -------------------------
-# Upload Section
+# FILE UPLOAD
 # -------------------------
 uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
@@ -131,7 +145,7 @@ if uploaded_file:
         text_column = st.selectbox("Select Review Column", df.columns)
 
     # -------------------------
-    # METRICS WITH ANIMATION
+    # METRICS
     # -------------------------
     total = len(df)
     positive = (df["Sentiment"] == "positive").sum()
@@ -143,18 +157,18 @@ if uploaded_file:
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.markdown(f'<div class="metric-card"><h3>Total Reviews</h3><h1>{total}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h4>Total Reviews</h4><h1>{total}</h1></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'<div class="metric-card"><h3>Positive</h3><h1>{positive}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h4>Positive</h4><h1>{positive}</h1></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'<div class="metric-card"><h3>Negative</h3><h1>{negative}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h4>Negative</h4><h1>{negative}</h1></div>', unsafe_allow_html=True)
     with col4:
-        st.markdown(f'<div class="metric-card"><h3>Neutral</h3><h1>{neutral}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h4>Neutral</h4><h1>{neutral}</h1></div>', unsafe_allow_html=True)
 
     st.divider()
 
     # -------------------------
-    # FILTER (WHITE SIDEBAR)
+    # SIDEBAR FILTER
     # -------------------------
     st.sidebar.header("Filter Reviews")
 
@@ -181,8 +195,8 @@ if uploaded_file:
         x="Sentiment",
         y="Count",
         text_auto=True,
-        height=350,
-        color="Sentiment"
+        color="Sentiment",
+        height=350
     )
 
     fig.update_layout(
@@ -197,7 +211,7 @@ if uploaded_file:
     st.divider()
 
     # -------------------------
-    # FILTERED TABLE
+    # TABLE
     # -------------------------
     st.subheader("Filtered Reviews")
 
@@ -207,7 +221,7 @@ if uploaded_file:
     )
 
     # -------------------------
-    # DOWNLOAD CSV (ADDED BACK)
+    # DOWNLOAD BUTTON
     # -------------------------
     csv = filtered_df.to_csv(index=False).encode("utf-8")
 
