@@ -1,16 +1,17 @@
 import streamlit as st
 import pandas as pd
 import re
-import joblib
-import matplotlib.pyplot as plt
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
+import plotly.express as px
+from textblob import TextBlob
 
-st.set_page_config(page_title="Sentiment Intelligence Dashboard", layout="wide")
+st.set_page_config(
+    page_title="Sentiment Intelligence Dashboard",
+    layout="wide",
+)
 
-# ---------------------------
-# Text Cleaning Function
-# ---------------------------
+# -------------------------
+# Clean Text
+# -------------------------
 def clean_text(text):
     text = str(text).lower()
     text = re.sub(r"http\S+", "", text)
@@ -18,36 +19,31 @@ def clean_text(text):
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
-# ---------------------------
-# Train Model (First Run Only)
-# ---------------------------
-@st.cache_resource
-def train_model():
-    data = pd.read_csv("dataset.csv")  # your training dataset
-    data["text"] = data["text"].apply(clean_text)
+# -------------------------
+# Sentiment Function
+# -------------------------
+def get_sentiment(text):
+    analysis = TextBlob(text)
+    polarity = analysis.sentiment.polarity
 
-    vectorizer = TfidfVectorizer(max_features=5000)
-    X = vectorizer.fit_transform(data["text"])
-    y = data["sentiment"]
+    if polarity > 0:
+        return "Positive"
+    elif polarity < 0:
+        return "Negative"
+    else:
+        return "Neutral"
 
-    model = LogisticRegression()
-    model.fit(X, y)
-
-    return model, vectorizer
-
-model, vectorizer = train_model()
-
-# ---------------------------
+# -------------------------
 # UI HEADER
-# ---------------------------
+# -------------------------
 st.title("📊 Sentiment Intelligence Dashboard")
-st.markdown("Upload review data and analyze customer sentiment instantly.")
+st.markdown("Analyze customer reviews and generate business insights instantly.")
 
 st.divider()
 
-# ---------------------------
-# FILE UPLOAD
-# ---------------------------
+# -------------------------
+# File Upload
+# -------------------------
 uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
 if uploaded_file:
@@ -55,78 +51,88 @@ if uploaded_file:
     df = pd.read_csv(uploaded_file)
 
     st.subheader("Dataset Preview")
-    st.dataframe(df.head())
+    st.dataframe(df.head(), use_container_width=True)
 
     column = st.selectbox("Select Review Column", df.columns)
 
     if st.button("Run Analysis"):
 
-        df["cleaned"] = df[column].astype(str).apply(clean_text)
-        X_input = vectorizer.transform(df["cleaned"])
-        df["Predicted_Sentiment"] = model.predict(X_input)
+        df["Cleaned_Text"] = df[column].astype(str).apply(clean_text)
+        df["Sentiment"] = df["Cleaned_Text"].apply(get_sentiment)
 
-        st.success("Analysis Complete ✅")
+        st.success("Analysis Completed Successfully")
 
-        # ---------------------------
-        # FILTER SECTION (FIXED)
-        # ---------------------------
-        st.subheader("Filter Reviews")
-
-        filter_option = st.radio(
-            "Select Sentiment",
-            ["All", "Positive", "Negative"],
-            horizontal=True,
-            key="sentiment_filter_unique"
-        )
-
-        if filter_option == "Positive":
-            filtered_df = df[df["Predicted_Sentiment"] == "positive"]
-        elif filter_option == "Negative":
-            filtered_df = df[df["Predicted_Sentiment"] == "negative"]
-        else:
-            filtered_df = df
-
-        # ---------------------------
-        # KPI SECTION
-        # ---------------------------
+        # -------------------------
+        # KPIs
+        # -------------------------
         total = len(df)
-        positive = len(df[df["Predicted_Sentiment"] == "positive"])
-        negative = len(df[df["Predicted_Sentiment"] == "negative"])
+        positive = len(df[df["Sentiment"] == "Positive"])
+        negative = len(df[df["Sentiment"] == "Negative"])
+        neutral = len(df[df["Sentiment"] == "Neutral"])
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
+
         col1.metric("Total Reviews", total)
-        col2.metric("Positive Reviews", positive)
-        col3.metric("Negative Reviews", negative)
+        col2.metric("Positive", positive)
+        col3.metric("Negative", negative)
+        col4.metric("Neutral", neutral)
 
         st.divider()
 
-        # ---------------------------
-        # SMALL PROFESSIONAL BAR CHART
-        # ---------------------------
+        # -------------------------
+        # Filter
+        # -------------------------
+        filter_option = st.radio(
+            "Filter Reviews",
+            ["All", "Positive", "Negative", "Neutral"],
+            horizontal=True,
+            key="filter_unique"
+        )
+
+        if filter_option != "All":
+            filtered_df = df[df["Sentiment"] == filter_option]
+        else:
+            filtered_df = df
+
+        # -------------------------
+        # SMALL PROFESSIONAL CHART
+        # -------------------------
         st.subheader("Sentiment Distribution")
 
-        fig, ax = plt.subplots(figsize=(4,3))
+        sentiment_counts = df["Sentiment"].value_counts().reset_index()
+        sentiment_counts.columns = ["Sentiment", "Count"]
 
-        ax.bar(["Positive", "Negative"], [positive, negative])
-        ax.set_ylabel("Count")
-        ax.set_title("Review Sentiment")
+        fig = px.bar(
+            sentiment_counts,
+            x="Sentiment",
+            y="Count",
+            height=350,
+            text_auto=True
+        )
 
-        st.pyplot(fig)
+        fig.update_layout(
+            margin=dict(l=20, r=20, t=30, b=20)
+        )
 
-        # ---------------------------
-        # SHOW FILTERED REVIEWS
-        # ---------------------------
+        st.plotly_chart(fig, use_container_width=False)
+
+        # -------------------------
+        # Show Filtered Reviews
+        # -------------------------
         st.subheader("Filtered Reviews")
-        st.dataframe(filtered_df[[column, "Predicted_Sentiment"]])
+        st.dataframe(
+            filtered_df[[column, "Sentiment"]],
+            use_container_width=True
+        )
 
-        # ---------------------------
-        # DOWNLOAD OPTION
-        # ---------------------------
+        # -------------------------
+        # Download Button
+        # -------------------------
         csv = filtered_df.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            label="Download Filtered CSV",
-            data=csv,
-            file_name="filtered_reviews.csv",
-            mime="text/csv"
+            "Download Filtered CSV",
+            csv,
+            "filtered_reviews.csv",
+            "text/csv"
         )
