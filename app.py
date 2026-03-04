@@ -7,7 +7,7 @@ import pytz
 st.set_page_config(page_title="Sentiment Intelligence Dashboard", layout="wide")
 
 # -------------------------
-# FIXED TIMEZONE (India)
+# INDIA TIME FIX
 # -------------------------
 india = pytz.timezone("Asia/Kolkata")
 now = datetime.now(india)
@@ -22,7 +22,7 @@ else:
     greeting = "Good Evening"
 
 # -------------------------
-# PROFESSIONAL UI
+# CLEAN PROFESSIONAL THEME
 # -------------------------
 st.markdown("""
 <style>
@@ -31,7 +31,7 @@ st.markdown("""
     color: white;
 }
 
-/* Sidebar White Clean */
+/* Sidebar white only */
 section[data-testid="stSidebar"] {
     background: white;
 }
@@ -39,21 +39,7 @@ section[data-testid="stSidebar"] * {
     color: black !important;
 }
 
-/* Fix Browse Button Text */
-[data-testid="stFileUploader"] label,
-[data-testid="stFileUploader"] span,
-button {
-    color: black !important;
-}
-
-/* Download Button Fix */
-.stDownloadButton button {
-    background-color: #243B55;
-    color: white !important;
-    border-radius: 8px;
-}
-
-/* Metric Card */
+/* Metric cards */
 .metric-card {
     background: rgba(255,255,255,0.08);
     padding: 25px;
@@ -72,7 +58,6 @@ button {
     font-weight: 700;
 }
 
-/* Subtitle */
 .sub-title {
     font-size: 15px;
     color: #cde7ff;
@@ -110,7 +95,7 @@ with col2:
 st.divider()
 
 # -------------------------
-# FILE UPLOAD
+# FILE UPLOADER (DEFAULT STYLE)
 # -------------------------
 uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
@@ -144,9 +129,7 @@ if uploaded_file:
     if text_column is None:
         text_column = st.selectbox("Select Review Column", df.columns)
 
-    # -------------------------
-    # METRICS
-    # -------------------------
+    # Metrics
     total = len(df)
     positive = (df["Sentiment"] == "positive").sum()
     negative = (df["Sentiment"] == "negative").sum()
@@ -167,9 +150,7 @@ if uploaded_file:
 
     st.divider()
 
-    # -------------------------
-    # SIDEBAR FILTER
-    # -------------------------
+    # Sidebar Filter
     st.sidebar.header("Filter Reviews")
 
     filter_choice = st.sidebar.radio(
@@ -182,9 +163,7 @@ if uploaded_file:
     else:
         filtered_df = df[df["Sentiment"] == filter_choice.lower()]
 
-    # -------------------------
-    # ANIMATED GRAPH
-    # -------------------------
+    # Chart
     st.subheader("Sentiment Distribution")
 
     summary_df = df["Sentiment"].value_counts().reset_index()
@@ -210,9 +189,7 @@ if uploaded_file:
 
     st.divider()
 
-    # -------------------------
-    # TABLE
-    # -------------------------
+    # Table
     st.subheader("Filtered Reviews")
 
     st.dataframe(
@@ -220,9 +197,7 @@ if uploaded_file:
         use_container_width=True
     )
 
-    # -------------------------
-    # DOWNLOAD BUTTON
-    # -------------------------
+    # Download
     csv = filtered_df.to_csv(index=False).encode("utf-8")
 
     st.download_button(
