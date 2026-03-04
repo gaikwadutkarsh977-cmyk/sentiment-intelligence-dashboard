@@ -1,48 +1,93 @@
 import streamlit as st
 import pandas as pd
-import re
 import plotly.express as px
-from textblob import TextBlob
+from datetime import datetime
 
-st.set_page_config(
-    page_title="Sentiment Intelligence Dashboard",
-    layout="wide",
-)
+st.set_page_config(page_title="Sentiment Intelligence Dashboard", layout="wide")
 
 # -------------------------
-# Clean Text
+# Greeting
 # -------------------------
-def clean_text(text):
-    text = str(text).lower()
-    text = re.sub(r"http\S+", "", text)
-    text = re.sub(r"[^a-zA-Z\s]", "", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+current_hour = datetime.now().hour
+
+if current_hour < 12:
+    greeting = "Good Morning"
+elif current_hour < 17:
+    greeting = "Good Afternoon"
+else:
+    greeting = "Good Evening"
+
+current_time = datetime.now().strftime("%I:%M %p")
 
 # -------------------------
-# Sentiment Function
+# LIGHT PROFESSIONAL GRADIENT
 # -------------------------
-def get_sentiment(text):
-    analysis = TextBlob(text)
-    polarity = analysis.sentiment.polarity
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #1fa2ff, #12d8fa, #a6ffcb);
+    color: white;
+}
 
-    if polarity > 0:
-        return "Positive"
-    elif polarity < 0:
-        return "Negative"
-    else:
-        return "Neutral"
+/* Fix upload box white issue */
+[data-testid="stFileUploader"] {
+    background-color: rgba(255,255,255,0.08);
+    padding: 10px;
+    border-radius: 10px;
+}
+
+/* Fix sidebar white issue */
+section[data-testid="stSidebar"] {
+    background: rgba(255,255,255,0.05);
+}
+
+/* Remove white boxes */
+.css-1d391kg, .css-1v0mbdj {
+    background: transparent !important;
+}
+
+.main-title {
+    font-size: 34px;
+    font-weight: 700;
+}
+
+.sub-title {
+    font-size: 14px;
+    color: #eafdfc;
+}
+
+.logo-circle {
+    width:85px;
+    height:85px;
+    border-radius:50%;
+    background: linear-gradient(135deg,#12d8fa,#1fa2ff);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:34px;
+    font-weight:bold;
+    color:white;
+    box-shadow: 0 0 20px rgba(0,255,200,0.4);
+}
+</style>
+""", unsafe_allow_html=True)
 
 # -------------------------
-# UI HEADER
+# Header (SAME STRUCTURE)
 # -------------------------
-st.title("📊 Sentiment Intelligence Dashboard")
-st.markdown("Analyze customer reviews and generate business insights instantly.")
+col1, col2 = st.columns([1,5])
+
+with col1:
+    st.markdown('<div class="logo-circle">SI</div>', unsafe_allow_html=True)
+
+with col2:
+    st.markdown('<div class="main-title">Sentiment Intelligence Dashboard</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sub-title">{greeting} 👋 | Current Time: {current_time}</div>', unsafe_allow_html=True)
 
 st.divider()
 
 # -------------------------
-# File Upload
+# Upload Section
 # -------------------------
 uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
@@ -53,86 +98,88 @@ if uploaded_file:
     st.subheader("Dataset Preview")
     st.dataframe(df.head(), use_container_width=True)
 
-    column = st.selectbox("Select Review Column", df.columns)
+    # Detect sentiment column
+    sentiment_column = None
+    for col in df.columns:
+        if "sentiment" in col.lower():
+            sentiment_column = col
+            break
 
-    if st.button("Run Analysis"):
+    if sentiment_column is None:
+        st.error("No sentiment column found.")
+        st.stop()
 
-        df["Cleaned_Text"] = df[column].astype(str).apply(clean_text)
-        df["Sentiment"] = df["Cleaned_Text"].apply(get_sentiment)
+    df["Sentiment"] = df[sentiment_column].astype(str).str.strip().str.lower()
 
-        st.success("Analysis Completed Successfully")
+    # Detect text column
+    text_column = None
+    for col in df.columns:
+        if "text" in col.lower():
+            text_column = col
+            break
 
-        # -------------------------
-        # KPIs
-        # -------------------------
-        total = len(df)
-        positive = len(df[df["Sentiment"] == "Positive"])
-        negative = len(df[df["Sentiment"] == "Negative"])
-        neutral = len(df[df["Sentiment"] == "Neutral"])
+    if text_column is None:
+        text_column = st.selectbox("Select Review Column", df.columns)
 
-        col1, col2, col3, col4 = st.columns(4)
+    # Metrics
+    total = len(df)
+    positive = (df["Sentiment"] == "positive").sum()
+    negative = (df["Sentiment"] == "negative").sum()
+    neutral = (df["Sentiment"] == "neutral").sum()
 
-        col1.metric("Total Reviews", total)
-        col2.metric("Positive", positive)
-        col3.metric("Negative", negative)
-        col4.metric("Neutral", neutral)
+    st.divider()
 
-        st.divider()
+    col1, col2, col3, col4 = st.columns(4)
 
-        # -------------------------
-        # Filter
-        # -------------------------
-        filter_option = st.radio(
-            "Filter Reviews",
-            ["All", "Positive", "Negative", "Neutral"],
-            horizontal=True,
-            key="filter_unique"
-        )
+    col1.metric("Total Reviews", total)
+    col2.metric("Positive", positive)
+    col3.metric("Negative", negative)
+    col4.metric("Neutral", neutral)
 
-        if filter_option != "All":
-            filtered_df = df[df["Sentiment"] == filter_option]
-        else:
-            filtered_df = df
+    st.divider()
 
-        # -------------------------
-        # SMALL PROFESSIONAL CHART
-        # -------------------------
-        st.subheader("Sentiment Distribution")
+    # Sidebar Filter
+    st.sidebar.header("Filter Reviews")
 
-        sentiment_counts = df["Sentiment"].value_counts().reset_index()
-        sentiment_counts.columns = ["Sentiment", "Count"]
+    filter_choice = st.sidebar.radio(
+        "Select Sentiment",
+        ["All", "Positive", "Negative", "Neutral"]
+    )
 
-        fig = px.bar(
-            sentiment_counts,
-            x="Sentiment",
-            y="Count",
-            height=350,
-            text_auto=True
-        )
+    if filter_choice == "All":
+        filtered_df = df
+    else:
+        filtered_df = df[df["Sentiment"] == filter_choice.lower()]
 
-        fig.update_layout(
-            margin=dict(l=20, r=20, t=30, b=20)
-        )
+    # Chart
+    st.subheader("Sentiment Distribution")
 
-        st.plotly_chart(fig, use_container_width=False)
+    summary_df = df["Sentiment"].value_counts().reset_index()
+    summary_df.columns = ["Sentiment", "Count"]
 
-        # -------------------------
-        # Show Filtered Reviews
-        # -------------------------
-        st.subheader("Filtered Reviews")
-        st.dataframe(
-            filtered_df[[column, "Sentiment"]],
-            use_container_width=True
-        )
+    fig = px.bar(
+        summary_df,
+        x="Sentiment",
+        y="Count",
+        height=300,
+        text_auto=True
+    )
 
-        # -------------------------
-        # Download Button
-        # -------------------------
-        csv = filtered_df.to_csv(index=False).encode("utf-8")
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font_color="white",
+        margin=dict(l=10, r=10, t=30, b=10)
+    )
 
-        st.download_button(
-            "Download Filtered CSV",
-            csv,
-            "filtered_reviews.csv",
-            "text/csv"
-        )
+    st.plotly_chart(fig, use_container_width=False)
+
+    st.divider()
+
+    # Table
+    st.subheader("Filtered Reviews")
+
+    st.dataframe(
+        filtered_df[[text_column, "Sentiment"]],
+        use_container_width=True
+    )
