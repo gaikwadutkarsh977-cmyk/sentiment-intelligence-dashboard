@@ -1,219 +1,277 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from textblob import TextBlob
 from datetime import datetime
-import pytz
+import pdfplumber
 
 st.set_page_config(page_title="Sentiment Intelligence Dashboard", layout="wide")
 
 # -------------------------
-# INDIA TIME FIX
+# Greeting system
 # -------------------------
-india = pytz.timezone("Asia/Kolkata")
-now = datetime.now(india)
-current_hour = now.hour
-current_time = now.strftime("%I:%M %p")
 
-if current_hour < 12:
-    greeting = "Good Morning"
-elif current_hour < 17:
-    greeting = "Good Afternoon"
+hour = datetime.now().hour
+
+if hour < 12:
+    greet = "Good Morning ☀"
+elif hour < 17:
+    greet = "Good Afternoon 🌤"
 else:
-    greeting = "Good Evening"
+    greet = "Good Evening 🌙"
 
 # -------------------------
-# SAFE PROFESSIONAL THEME
+# UI STYLE
 # -------------------------
+
 st.markdown("""
 <style>
-.stApp {
-    background: linear-gradient(135deg, #1e3c72, #2a5298);
-    color: white;
+
+.stApp{
+background: linear-gradient(120deg,#e8f2ff,#e6fff4);
 }
 
-/* Sidebar white only */
-section[data-testid="stSidebar"] {
-    background: white;
-}
-section[data-testid="stSidebar"] * {
-    color: black !important;
+.header{
+font-size:38px;
+font-weight:700;
+color:#222;
 }
 
-/* Metric cards */
-.metric-card {
-    background: rgba(255,255,255,0.1);
-    padding: 25px;
-    border-radius: 15px;
-    text-align:center;
-    transition: 0.3s;
-}
-.metric-card:hover {
-    transform: translateY(-5px);
-    background: rgba(255,255,255,0.18);
+.metric-card{
+background:white;
+padding:25px;
+border-radius:14px;
+text-align:center;
+box-shadow:0 4px 15px rgba(0,0,0,0.1);
+transition:0.3s;
 }
 
-/* Title */
-.main-title {
-    font-size: 38px;
-    font-weight: 700;
+.metric-card:hover{
+transform:scale(1.04);
 }
 
-.sub-title {
-    font-size: 15px;
-    color: #dbe9ff;
+.metric-title{
+font-size:18px;
+color:#666;
 }
 
-/* Logo */
-.logo-circle {
-    width:90px;
-    height:90px;
-    border-radius:50%;
-    background: linear-gradient(135deg,#6dd5ed,#2193b0);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:34px;
-    font-weight:bold;
-    color:white;
+.metric-value{
+font-size:32px;
+font-weight:bold;
+color:#111;
 }
 
-/* ✅ FIX DOWNLOAD BUTTON ONLY */
-.stDownloadButton > button {
-    background-color: #2193b0 !important;
-    color: white !important;
-    border-radius: 8px;
-    padding: 8px 16px;
-    border: none;
+.filter-box{
+background:white;
+padding:15px;
+border-radius:12px;
+box-shadow:0 3px 10px rgba(0,0,0,0.1);
 }
 
-.stDownloadButton > button:hover {
-    background-color: #176b87 !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # -------------------------
 # HEADER
 # -------------------------
-col1, col2 = st.columns([1,5])
 
-with col1:
-    st.markdown('<div class="logo-circle">SI</div>', unsafe_allow_html=True)
+st.markdown('<div class="header">📊 Sentiment Intelligence Dashboard</div>', unsafe_allow_html=True)
 
-with col2:
-    st.markdown('<div class="main-title">Sentiment Intelligence Dashboard</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="sub-title">{greeting} 👋 | {current_time}</div>', unsafe_allow_html=True)
+st.write(f"**{greet} — Let's start analyzing customer feedback**")
 
 st.divider()
 
 # -------------------------
-# FILE UPLOADER (DEFAULT STYLE)
+# FILE UPLOAD
 # -------------------------
-uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
-if uploaded_file:
+file = st.file_uploader("Upload CSV or PDF File", type=["csv","pdf"])
 
-    df = pd.read_csv(uploaded_file)
+if file:
+
+    # -------------------------
+    # READ CSV
+    # -------------------------
+
+    if file.name.endswith(".csv"):
+        df = pd.read_csv(file)
+
+    # -------------------------
+    # READ PDF
+    # -------------------------
+
+    if file.name.endswith(".pdf"):
+
+        text_list = []
+
+        with pdfplumber.open(file) as pdf:
+            for page in pdf.pages:
+
+                text = page.extract_text()
+
+                if text:
+                    lines = text.split("\n")
+                    text_list.extend(lines)
+
+        df = pd.DataFrame(text_list, columns=["review"])
 
     st.subheader("Dataset Preview")
-    st.dataframe(df.head(), use_container_width=True)
 
-    # Detect sentiment column
-    sentiment_column = None
+    st.dataframe(df.head())
+
+    # -------------------------
+    # FIND SENTIMENT COLUMN
+    # -------------------------
+
+    sentiment_col = None
+
     for col in df.columns:
         if "sentiment" in col.lower():
-            sentiment_column = col
-            break
+            sentiment_col = col
 
-    if sentiment_column is None:
-        st.error("No sentiment column found.")
-        st.stop()
+    # -------------------------
+    # FIND TEXT COLUMN
+    # -------------------------
 
-    df["Sentiment"] = df[sentiment_column].astype(str).str.strip().str.lower()
+    text_col = None
 
-    # Detect text column
-    text_column = None
     for col in df.columns:
-        if "text" in col.lower():
-            text_column = col
-            break
+        if "review" in col.lower() or "text" in col.lower() or "comment" in col.lower():
+            text_col = col
 
-    if text_column is None:
-        text_column = st.selectbox("Select Review Column", df.columns)
+    if text_col is None:
+        text_col = st.selectbox("Select Review Column", df.columns)
 
-    # Metrics
+    # -------------------------
+    # SENTIMENT FUNCTION
+    # -------------------------
+
+    def get_sentiment(text):
+
+        polarity = TextBlob(str(text)).sentiment.polarity
+
+        if polarity > 0:
+            return "Positive"
+
+        elif polarity < 0:
+            return "Negative"
+
+        else:
+            return "Neutral"
+
+    # -------------------------
+    # APPLY SENTIMENT
+    # -------------------------
+
+    if sentiment_col:
+        df["Sentiment"] = df[sentiment_col]
+
+    else:
+        df["Sentiment"] = df[text_col].apply(get_sentiment)
+
+    # -------------------------
+    # METRICS
+    # -------------------------
+
     total = len(df)
-    positive = (df["Sentiment"] == "positive").sum()
-    negative = (df["Sentiment"] == "negative").sum()
-    neutral = (df["Sentiment"] == "neutral").sum()
+    positive = (df["Sentiment"] == "Positive").sum()
+    negative = (df["Sentiment"] == "Negative").sum()
+    neutral = (df["Sentiment"] == "Neutral").sum()
 
     st.divider()
 
-    col1, col2, col3, col4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
 
-    with col1:
-        st.markdown(f'<div class="metric-card"><h4>Total Reviews</h4><h1>{total}</h1></div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown(f'<div class="metric-card"><h4>Positive</h4><h1>{positive}</h1></div>', unsafe_allow_html=True)
-    with col3:
-        st.markdown(f'<div class="metric-card"><h4>Negative</h4><h1>{negative}</h1></div>', unsafe_allow_html=True)
-    with col4:
-        st.markdown(f'<div class="metric-card"><h4>Neutral</h4><h1>{neutral}</h1></div>', unsafe_allow_html=True)
+    with c1:
+        st.markdown(f"""
+        <div class="metric-card">
+        <div class="metric-title">Total Reviews</div>
+        <div class="metric-value">{total}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c2:
+        st.markdown(f"""
+        <div class="metric-card">
+        <div class="metric-title">Positive</div>
+        <div class="metric-value">{positive}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c3:
+        st.markdown(f"""
+        <div class="metric-card">
+        <div class="metric-title">Negative</div>
+        <div class="metric-value">{negative}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c4:
+        st.markdown(f"""
+        <div class="metric-card">
+        <div class="metric-title">Neutral</div>
+        <div class="metric-value">{neutral}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.divider()
 
-    # Sidebar Filter
-    st.sidebar.header("Filter Reviews")
+    # -------------------------
+    # FILTER
+    # -------------------------
 
-    filter_choice = st.sidebar.radio(
-        "Select Sentiment",
+    st.sidebar.markdown("### Filter Reviews")
+
+    option = st.sidebar.radio(
+        "Choose Sentiment",
         ["All", "Positive", "Negative", "Neutral"]
     )
 
-    if filter_choice == "All":
-        filtered_df = df
-    else:
-        filtered_df = df[df["Sentiment"] == filter_choice.lower()]
+    if option == "All":
+        filtered = df
 
-    # Chart
+    else:
+        filtered = df[df["Sentiment"] == option]
+
+    # -------------------------
+    # GRAPH
+    # -------------------------
+
     st.subheader("Sentiment Distribution")
 
-    summary_df = df["Sentiment"].value_counts().reset_index()
-    summary_df.columns = ["Sentiment", "Count"]
-
-    fig = px.bar(
-        summary_df,
+    fig = px.histogram(
+        df,
         x="Sentiment",
-        y="Count",
-        text_auto=True,
         color="Sentiment",
         height=350
     )
 
     fig.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font_color="white"
+        plot_bgcolor="white",
+        paper_bgcolor="white"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
-    # Table
+    # -------------------------
+    # TABLE
+    # -------------------------
+
     st.subheader("Filtered Reviews")
 
-    st.dataframe(
-        filtered_df[[text_column, "Sentiment"]],
-        use_container_width=True
-    )
+    st.dataframe(filtered[[text_col, "Sentiment"]])
 
-    # Download Button (FIXED)
-    csv = filtered_df.to_csv(index=False).encode("utf-8")
+    # -------------------------
+    # DOWNLOAD
+    # -------------------------
+
+    csv = filtered.to_csv(index=False).encode("utf-8")
 
     st.download_button(
         "Download Filtered CSV",
         csv,
-        "filtered_reviews.csv",
+        "sentiment_results.csv",
         "text/csv"
     )
