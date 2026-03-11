@@ -19,6 +19,7 @@ elif hour < 17:
     greet = "Good Afternoon 🌤"
 else:
     greet = "Good Evening 🌙"
+    st.write(greet + " — Let's start analyzing your data")
 
 # -------------------------
 # UI STYLE
