@@ -26,6 +26,3 @@ Businesses receive large volumes of customer feedback from social media, reviews
 3. Sentiment prediction using ML model
 4. Visualization of results
 
-## How to Run Project
-
-Clone repository:
