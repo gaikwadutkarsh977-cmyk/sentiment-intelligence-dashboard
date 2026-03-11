@@ -2,16 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from textblob import TextBlob
-from datetime import datetime
 import pdfplumber
+from datetime import datetime
+import pytz
 
 st.set_page_config(page_title="Sentiment Intelligence Dashboard", layout="wide")
 
 # -------------------------
-# Greeting system
+# INDIA TIME GREETING
 # -------------------------
-
-hour = datetime.now().hour
+india = pytz.timezone("Asia/Kolkata")
+hour = datetime.now(india).hour
 
 if hour < 12:
     greet = "Good Morning ☀"
@@ -19,54 +20,23 @@ elif hour < 17:
     greet = "Good Afternoon 🌤"
 else:
     greet = "Good Evening 🌙"
-    st.write(greet + " — Let's start analyzing your data")
 
 # -------------------------
 # UI STYLE
 # -------------------------
-
 st.markdown("""
 <style>
 
 .stApp{
-background: linear-gradient(120deg,#e8f2ff,#e6fff4);
+background: linear-gradient(135deg,#4facfe,#43e97b);
 }
 
-.header{
-font-size:38px;
-font-weight:700;
-color:#222;
-}
-
-.metric-card{
+.metric{
 background:white;
-padding:25px;
-border-radius:14px;
-text-align:center;
-box-shadow:0 4px 15px rgba(0,0,0,0.1);
-transition:0.3s;
-}
-
-.metric-card:hover{
-transform:scale(1.04);
-}
-
-.metric-title{
-font-size:18px;
-color:#666;
-}
-
-.metric-value{
-font-size:32px;
-font-weight:bold;
-color:#111;
-}
-
-.filter-box{
-background:white;
-padding:15px;
+padding:20px;
 border-radius:12px;
-box-shadow:0 3px 10px rgba(0,0,0,0.1);
+text-align:center;
+box-shadow:0px 3px 8px rgba(0,0,0,0.2);
 }
 
 </style>
@@ -75,39 +45,33 @@ box-shadow:0 3px 10px rgba(0,0,0,0.1);
 # -------------------------
 # HEADER
 # -------------------------
-
-st.markdown('<div class="header">📊 Sentiment Intelligence Dashboard</div>', unsafe_allow_html=True)
-
-st.write(f"**{greet} — Let's start analyzing customer feedback**")
+st.title("📊 Sentiment Intelligence Dashboard")
+st.write(greet + " — Let's start analyzing your data")
 
 st.divider()
 
 # -------------------------
 # FILE UPLOAD
 # -------------------------
-
-file = st.file_uploader("Upload CSV or PDF File", type=["csv","pdf"])
+file = st.file_uploader("Upload CSV or PDF file", type=["csv","pdf"])
 
 if file:
 
     # -------------------------
     # READ CSV
     # -------------------------
-
     if file.name.endswith(".csv"):
         df = pd.read_csv(file)
 
     # -------------------------
     # READ PDF
     # -------------------------
-
     if file.name.endswith(".pdf"):
 
         text_list = []
 
         with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
-
                 text = page.extract_text()
 
                 if text:
@@ -117,13 +81,11 @@ if file:
         df = pd.DataFrame(text_list, columns=["review"])
 
     st.subheader("Dataset Preview")
-
     st.dataframe(df.head())
 
     # -------------------------
     # FIND SENTIMENT COLUMN
     # -------------------------
-
     sentiment_col = None
 
     for col in df.columns:
@@ -133,7 +95,6 @@ if file:
     # -------------------------
     # FIND TEXT COLUMN
     # -------------------------
-
     text_col = None
 
     for col in df.columns:
@@ -146,98 +107,69 @@ if file:
     # -------------------------
     # SENTIMENT FUNCTION
     # -------------------------
-
     def get_sentiment(text):
 
         polarity = TextBlob(str(text)).sentiment.polarity
 
         if polarity > 0:
             return "Positive"
-
         elif polarity < 0:
             return "Negative"
-
         else:
             return "Neutral"
 
     # -------------------------
     # APPLY SENTIMENT
     # -------------------------
-
     if sentiment_col:
         df["Sentiment"] = df[sentiment_col]
-
     else:
         df["Sentiment"] = df[text_col].apply(get_sentiment)
 
     # -------------------------
     # METRICS
     # -------------------------
-
     total = len(df)
-    positive = (df["Sentiment"] == "Positive").sum()
-    negative = (df["Sentiment"] == "Negative").sum()
-    neutral = (df["Sentiment"] == "Neutral").sum()
+    positive = (df["Sentiment"]=="Positive").sum()
+    negative = (df["Sentiment"]=="Negative").sum()
+    neutral = (df["Sentiment"]=="Neutral").sum()
 
     st.divider()
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1,c2,c3,c4 = st.columns(4)
 
     with c1:
-        st.markdown(f"""
-        <div class="metric-card">
-        <div class="metric-title">Total Reviews</div>
-        <div class="metric-value">{total}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="metric"><h3>Total Reviews</h3><h2>{total}</h2></div>',unsafe_allow_html=True)
 
     with c2:
-        st.markdown(f"""
-        <div class="metric-card">
-        <div class="metric-title">Positive</div>
-        <div class="metric-value">{positive}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="metric"><h3>Positive</h3><h2>{positive}</h2></div>',unsafe_allow_html=True)
 
     with c3:
-        st.markdown(f"""
-        <div class="metric-card">
-        <div class="metric-title">Negative</div>
-        <div class="metric-value">{negative}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="metric"><h3>Negative</h3><h2>{negative}</h2></div>',unsafe_allow_html=True)
 
     with c4:
-        st.markdown(f"""
-        <div class="metric-card">
-        <div class="metric-title">Neutral</div>
-        <div class="metric-value">{neutral}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="metric"><h3>Neutral</h3><h2>{neutral}</h2></div>',unsafe_allow_html=True)
 
     st.divider()
 
     # -------------------------
     # FILTER
     # -------------------------
-
-    st.sidebar.markdown("### Filter Reviews")
+    st.sidebar.title("Filter Reviews")
 
     option = st.sidebar.radio(
         "Choose Sentiment",
-        ["All", "Positive", "Negative", "Neutral"]
+        ["All","Positive","Negative","Neutral"]
     )
 
-    if option == "All":
+    if option=="All":
         filtered = df
-
     else:
-        filtered = df[df["Sentiment"] == option]
+        filtered = df[df["Sentiment"]==option]
 
     # -------------------------
     # GRAPH
     # -------------------------
-
     st.subheader("Sentiment Distribution")
 
     fig = px.histogram(
@@ -247,27 +179,20 @@ if file:
         height=350
     )
 
-    fig.update_layout(
-        plot_bgcolor="white",
-        paper_bgcolor="white"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig,use_container_width=True)
 
     st.divider()
 
     # -------------------------
     # TABLE
     # -------------------------
-
     st.subheader("Filtered Reviews")
 
-    st.dataframe(filtered[[text_col, "Sentiment"]])
+    st.dataframe(filtered[[text_col,"Sentiment"]])
 
     # -------------------------
     # DOWNLOAD
     # -------------------------
-
     csv = filtered.to_csv(index=False).encode("utf-8")
 
     st.download_button(
