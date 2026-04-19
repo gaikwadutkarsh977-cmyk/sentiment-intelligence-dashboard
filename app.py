@@ -13,7 +13,6 @@ st.set_page_config(page_title="Sentiment Intelligence Dashboard", layout="wide")
 # -------------------------
 india = pytz.timezone("Asia/Kolkata")
 hour = datetime.now(india).hour
-
 if hour < 12:
     greet = "Good Morning ☀"
 elif hour < 17:
